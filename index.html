@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#C67C4E">
+<title>SRP Site Visit — Sarasota Residential Painting</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="assets/icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="SRP Visit">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="stylesheet" href="assets/fonts.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- Welcome -->
+<section class="splash" id="splash">
+    <div class="splash-body">
+    <img src="assets/logo.png" alt="Sarasota Residential Painting" class="splash-logo">
+    <h1>Every room.<br>Every detail.<br>One visit.</h1>
+    <p>Photos, counts and notes for every area, so the estimate is exact.</p>
+    <button class="btn-primary" id="startBtn">Start visit</button>
+    <button class="btn-link" id="splashVisits" hidden>Saved visits</button>
+  </div>
+</section>
+
+<header class="top">
+  <div class="top-row">
+    <div class="loc">
+      <span class="loc-lbl">Location</span>
+      <span class="loc-val"><span id="hdrCity">Sarasota</span><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>
+    </div>
+    <img src="assets/logo.png" alt="SRP" class="top-logo">
+  </div>
+  <div class="top-search" id="visitsBtn" role="button" tabindex="0" aria-label="Saved visits">
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M20 20l-3.5-3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    <span id="hdrCust">New customer</span>
+    <span class="top-id" id="hdrMode">ESTIMATE</span>
+  </div>
+</header>
+
+<main id="app">
+  <!-- VIEW: Visit -->
+  <div class="view on" data-view="visit">
+    <section class="banner">
+      <div class="banner-in">
+        <span class="tag-promo" id="bnTag">Estimate</span>
+        <h2 id="bnTitle">Take BEFORE photos of every area</h2>
+        <div class="seg" id="mode">
+          <button data-v="antes" class="on">Estimate</button>
+          <button data-v="despues">Job completed</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Customer</h2>
+      <label>Customer name<input id="c_nombre" autocomplete="off" placeholder="Full name"></label>
+      <label>Phone<input id="c_tel" type="tel" inputmode="tel" placeholder="(970) 000-0000"></label>
+      <label>Address<input id="c_dir" autocomplete="off" placeholder="Street and number"></label>
+      <label>City
+        <select id="c_ciudad">
+          <optgroup label="Florida"><option>Sarasota</option><option>Bradenton</option><option>Lakewood Ranch</option>
+          <option>Venice</option><option>Osprey</option><option>Nokomis</option>
+          <option>Longboat Key</option><option>Siesta Key</option><option>North Port</option></optgroup><optgroup label="Colorado"><option>Steamboat Springs</option><option>Hayden</option><option>Oak Creek</option><option>Craig</option></optgroup><option>Other</option>
+        </select>
+      </label>
+      <div class="row2">
+        <label>Property type
+          <select id="c_tipo"><option>House</option><option>Condo</option><option>Apartment</option><option>Townhouse</option><option>Commercial</option></select>
+        </label>
+        <label>Stories
+          <select id="c_pisos"><option>1</option><option>2</option><option>3+</option></select>
+        </label>
+      </div>
+      <div class="q">Who buys the paint?</div>
+      <div class="seg tabs" id="c_pintura">
+        <button data-v="SRP" class="on">Us (SRP)</button>
+        <button data-v="Cliente">Customer</button>
+      </div>
+      <label>General notes<textarea id="c_notas" rows="2" placeholder="Preferred date, colors, pets, access…"></textarea></label>
+    </section>
+    <button class="btn-primary" data-go="areas">Next: areas</button>
+  </div>
+
+  <!-- VIEW: Areas -->
+  <div class="view" data-view="areas">
+    <div class="vhead"><h2>Areas</h2><span class="muted"><b id="areaCount">0</b> added</span></div>
+    <div class="cats" id="cats">
+      <button data-f="all" class="on">All</button>
+      <button data-f="in">Interior</button>
+      <button data-f="out">Exterior</button>
+    </div>
+    <div id="areas" data-filter="all"></div>
+    <button class="btn-add" id="addArea"><span>+</span> Add area</button>
+    <button class="btn-primary" data-go="send">Next: send report</button>
+  </div>
+
+  <!-- VIEW: Send -->
+  <div class="view" data-view="send">
+    <section class="card send">
+      <h2>Send report</h2>
+      <p class="hint">Creates a PDF report with all photos and details. No prices included.</p>
+      <div id="checks"></div>
+      <button class="btn-primary" id="sendBtn">Send report</button>
+      <button class="btn-ghost" id="newBtn">Start new visit</button>
+      <p class="hint save-note" id="saveNote" hidden>Saving is off in this preview. Open the app from your home screen to save visits on the phone.</p>
+      <p class="hint save-ok">Every change saves on this phone automatically. Tap the customer bar at the top to see all saved visits.</p>
+    </section>
+  </div>
+</main>
+
+<nav class="bnav" aria-label="Sections">
+  <button data-go="visit" class="on" aria-label="Visit">
+    <svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span>Visit</span></button>
+  <button data-go="areas" aria-label="Areas">
+    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7.5" height="7.5" rx="2"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="2"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="2"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="2"/></svg><span>Areas</span><i class="badge" id="navBadge" hidden>0</i></button>
+  <button id="navAdd" class="add" aria-label="Add area">
+    <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+  <button data-go="send" aria-label="Send">
+    <svg viewBox="0 0 24 24"><path d="M21 3L10 14M21 3l-7 18-4-7-7-4z"/></svg><span>Send</span></button>
+</nav>
+
+<!-- Area type picker -->
+<div class="sheet" id="picker" hidden>
+  <div class="sheet-box">
+    <div class="sheet-grab"></div>
+    <div class="sheet-head"><h2>Which area?</h2><button class="x" id="pickClose" aria-label="Close">✕</button></div>
+    <div class="seg tabs" id="pickTabs">
+      <button data-p="in" class="on">Interior</button>
+      <button data-p="out">Exterior</button>
+    </div>
+    <div class="grid" id="gridIn"></div>
+    <div class="grid" id="gridOut" hidden></div>
+  </div>
+</div>
+
+<!-- Saved visits -->
+<div class="sheet" id="visits" hidden>
+  <div class="sheet-box">
+    <div class="sheet-grab"></div>
+    <div class="sheet-head"><h2>Saved visits</h2><button class="x" id="vClose" aria-label="Close">✕</button></div>
+    <p class="hint">Saved on this phone. Tap a visit to open it.</p>
+    <div id="vlist"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+<div class="busy" id="busy" hidden><div class="spin"></div><div id="busyTxt">Preparing report…</div></div>
+
+<script src="assets/vendor/jspdf.umd.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
