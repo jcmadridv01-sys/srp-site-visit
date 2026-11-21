@@ -23,7 +23,8 @@ const REPAIRS = [
   ['parcheCh','Small patches (nail hole / coin)'],
   ['parcheMd','Medium patches (hand size)'],
   ['parcheGr','Large patches (bigger than a sheet of paper)'],
-  ['grietas','Cracks']
+  ['grietas','Wall cracks'],
+  ['grietasTecho','Ceiling cracks (patch + texture + repaint that ceiling)']
 ];
 const COND_IN = ['Big color change','Needs primer','Popcorn ceiling','Damaged texture','Stains / moisture','Lots of furniture','Occupied home','Wallpaper on wall','Knotty / stained wood (needs stain-blocking primer)','Wall decor to remove'];
 
