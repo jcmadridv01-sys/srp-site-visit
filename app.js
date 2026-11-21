@@ -8,6 +8,15 @@ const SIZES = [
   {v:'Medium', d:'≈ 12×14 ft'},
   {v:'Large',  d:'≈ 15×20 ft or more'}
 ];
+const SIZES_OUT = {
+  house:[{v:'Small',d:'home under 1,200 sq ft'},{v:'Medium',d:'1,200–2,000 sq ft'},{v:'Large',d:'2,000–3,000 sq ft'},{v:'Extra large',d:'over 3,000 sq ft'}],
+  fence:[{v:'Small',d:'under 50 ft long'},{v:'Medium',d:'50–100 ft'},{v:'Large',d:'100–200 ft'},{v:'Extra large',d:'over 200 ft'}],
+  lanai:[{v:'Small',d:'under 100 sq ft'},{v:'Medium',d:'100–250 sq ft'},{v:'Large',d:'250–500 sq ft'},{v:'Extra large',d:'over 500 sq ft'}],
+  floor:[{v:'Small',d:'1-car garage'},{v:'Medium',d:'2-car garage'},{v:'Large',d:'3-car or driveway'},{v:'Extra large',d:'big driveway + walks'}]
+};
+const SIZE_HELP = {house:'Size of the home (living area). Not sure? Look the address up on Zillow.',fence:'Length of the fence or wall.',lanai:'Ceiling area of the lanai or porch.',floor:'Floor area.'};
+const sizeKind = t => /^(House|Soffit|Pressure)/.test(t)?'house':/^Fence/.test(t)?'fence':/^Lanai/.test(t)?'lanai':/^Garage floor/.test(t)?'floor':'';
+const SURF_HOUSE = ['Walls & trim','Soffit & fascia'];
 const HEIGHTS = ['Standard (8–9 ft)','10 ft','12 ft','Over 12 ft'];
 const SURF_IN = ['Walls','Ceiling','Baseboards','Crown molding','Wood paneling / wainscot'];
 const COUNTS_IN = [
@@ -157,7 +166,7 @@ const stateOf = c=> CO_CITIES.includes(c)?'Colorado':(c==='Other'?'—':'Florida
 function newArea(tipo){
   const n = state.areas.filter(a=>a.tipo===tipo).length;
   return {id:'A'+Math.random().toString(36).slice(2,8), tipo, nombre: n? `${tipo} ${n+1}`:tipo,
-    tam:'Medium', altura:HEIGHTS[0], sup: isOutT(tipo)?[]:['Walls'], ancho:'Standard', mat:'', shutTipo:'', shutPrep:'', extras:[], cnt:{}, cond:[], nota:'', fotos:[]};
+    tam:'Medium', altura:HEIGHTS[0], sup: /^House/.test(tipo)?[...SURF_HOUSE]:(isOutT(tipo)?[]:['Walls']), ancho:'Standard', mat:'', shutTipo:'', shutPrep:'', extras:[], cnt:{}, cond:[], nota:'', fotos:[]};
 }
 function isOutT(t){ return TYPES_OUT.includes(t); }
 
@@ -226,7 +235,11 @@ function areaHTML(a,i){
       <div class="sub">Size</div>${chips(SIZES, v=>a.tam===v, 'tam')}
       <div class="sub">Ceiling height</div>${chips(HEIGHTS, v=>a.altura===v, 'alt')}
       <div class="sub">What gets painted?</div>${chips(SURF_IN, v=>a.sup.includes(v), 'sup')}`}
-      ${out&&hasSoffit(a.tipo)?`
+      ${out&&sizeKind(a.tipo)?`
+      <div class="sub">Size</div><p class="mini">${SIZE_HELP[sizeKind(a.tipo)]}</p>${chips(SIZES_OUT[sizeKind(a.tipo)], v=>a.tam===v, 'tam')}`:''}
+      ${out&&/^House/.test(a.tipo)?`
+      <div class="sub">What gets painted?</div><p class="mini">Walls & trim includes electrical boxes and small entry / porch ceilings. A big lanai ceiling is its own area.</p>${chips(SURF_HOUSE, v=>a.sup.includes(v), 'sup')}`:''}
+      ${out&&hasSoffit(a.tipo)&&(!/^House/.test(a.tipo)||a.sup.includes('Soffit & fascia'))?`
       <div class="sub">Soffit / overhang width</div>${chips(SOFFIT_W, v=>(a.ancho||'Standard')===v, 'ancho')}
       <div class="sub">Soffit material</div>${chips(SOFFIT_MAT, v=>a.mat===v, 'mat')}`:''}
       <div class="sub">Count</div>${steppers(out?COUNTS_OUT:COUNTS_IN, a.cnt)}
@@ -337,12 +350,14 @@ $('#picker').addEventListener('click',e=>{
 });
 
 // ---------- Resumen y PDF ----------
-function labelCnt(k){ const all=[...COUNTS_IN,...REPAIRS,...COUNTS_OUT]; return (all.find(x=>x[0]===k)||[k,k])[1]; }
+function labelCnt(k,out){ const all=out?[...COUNTS_OUT,...COUNTS_IN,...REPAIRS]:[...COUNTS_IN,...REPAIRS,...COUNTS_OUT]; return (all.find(x=>x[0]===k)||[k,k])[1]; }
 function areaLines(a){
   const L=[];
   if(!isOut(a)){ L.push(`Size: ${a.tam}   ·   Ceiling: ${a.altura}`); L.push(`Paint: ${a.sup.length?a.sup.join(', '):'—'}`); }
-  if(isOut(a)&&hasSoffit(a.tipo)) L.push(`Soffit: ${a.ancho||'Standard'}${a.mat?'   ·   '+a.mat:''}`);
-  const c=Object.entries(a.cnt).filter(([,n])=>n>0).map(([k,n])=>`${labelCnt(k)}: ${n}`);
+  if(isOut(a)&&sizeKind(a.tipo)){ const z=SIZES_OUT[sizeKind(a.tipo)].find(x=>x.v===a.tam); L.push(`Size: ${a.tam}${z?' ('+z.d+')':''}`); }
+  if(isOut(a)&&/^House/.test(a.tipo)) L.push(`Paint: ${a.sup.length?a.sup.join(', '):'—'}`);
+  if(isOut(a)&&hasSoffit(a.tipo)&&(!/^House/.test(a.tipo)||a.sup.includes('Soffit & fascia'))) L.push(`Soffit: ${a.ancho||'Standard'}${a.mat?'   ·   '+a.mat:''}`);
+  const c=Object.entries(a.cnt).filter(([,n])=>n>0).map(([k,n])=>`${labelCnt(k,isOut(a))}: ${n}`);
   if(c.length) L.push(c.join('   ·   '));
   if(a.shutTipo||a.shutPrep) L.push(`Shutter type & prep: ${[a.shutTipo,a.shutPrep].filter(Boolean).join('   ·   ')}`);
   if(a.cond.length) L.push(`Condition: ${a.cond.join(', ')}`);
