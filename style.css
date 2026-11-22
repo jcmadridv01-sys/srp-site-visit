@@ -81,7 +81,19 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--caramel)
 .cats::-webkit-scrollbar{display:none}
 .cats button{flex:none;border:0;background:#EDEDED;color:var(--ink);border-radius:10px;padding:9px 16px;font-size:14px;font-weight:500}
 .cats button.on{background:var(--caramel);color:#fff;font-weight:600}
-#areas[data-filter="in"] .area[data-kind="out"],#areas[data-filter="out"] .area[data-kind="in"]{display:none}
+#areas[data-filter="in"] .area:not([data-kind="in"]),#areas[data-filter="out"] .area:not([data-kind="out"]),#areas[data-filter="wp"] .area:not([data-kind="wp"]){display:none}
+.wprows{display:flex;flex-direction:column;gap:10px;margin-bottom:10px}
+.wprow{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;background:#FAF6F1;border:1px solid #EADFD3;border-radius:12px;padding:10px}
+.wprow select{grid-column:1/2;font-size:15px;padding:8px 10px;border-radius:10px;border:1px solid #E2E2E2;background:#fff}
+.wprow .del{grid-column:2/3;grid-row:1/2}
+.wpdim{grid-column:1/3;display:flex;align-items:center;gap:8px}
+.wpdim input{flex:1;min-width:0;font-size:16px;padding:10px;border-radius:10px;border:1px solid #E2E2E2;background:#fff}
+.wpdim span{color:var(--muted);font-size:14px}
+.wpsf{grid-column:1/3;font-size:13px;color:var(--muted)}
+.wpsf b{color:var(--ink)}
+.wpadd{display:flex;gap:8px;margin-bottom:10px}
+.wpadd .btn-extra{flex:1;margin:0}
+.wptot{font-size:14px;background:#F3EEE8;border-radius:10px;padding:10px 12px;margin-bottom:6px}
 .btn-add{width:100%;min-height:56px;border:1.5px dashed var(--caramel);background:var(--cream);color:var(--caramel-d);border-radius:16px;font-weight:600;font-size:16px;margin-bottom:14px;display:flex;align-items:center;justify-content:center;gap:8px}
 .btn-add span{width:26px;height:26px;border-radius:8px;background:var(--caramel);color:#fff;display:grid;place-items:center;font-size:18px;line-height:1}
 
@@ -94,7 +106,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--caramel)
 .area-top .tt small{display:block;font-size:12px;color:var(--muted);margin-bottom:2px}
 .area-top input{margin:0;min-height:38px;padding:6px 10px;font-weight:600;background:transparent;border-color:transparent}
 .area-top input:focus{border-color:var(--caramel);background:#fff}
-.area-top .del,.extra-top .del{border:0;background:#FBEDEA;color:var(--warn);font-size:13px;font-weight:600;padding:8px 10px;border-radius:10px;flex:none}
+.area-top .del,.extra-top .del,.wprow .del{border:0;background:#FBEDEA;color:var(--warn);font-size:13px;font-weight:600;padding:8px 10px;border-radius:10px;flex:none}
 .area-body{padding:4px 14px 16px;border-top:1px solid #F2F2F2}
 .sub{font-size:14px;font-weight:600;color:var(--ink);margin:18px 0 10px}
 .sub:first-child{margin-top:12px}

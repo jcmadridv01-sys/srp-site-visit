@@ -82,6 +82,12 @@
         <button data-v="SRP" class="on">Us (SRP)</button>
         <button data-v="Cliente">Customer</button>
       </div>
+      <div class="q">Trim &amp; door paint (SW Emerald Urethane)</div>
+      <div class="seg tabs" id="c_brillo">
+        <button data-v="Semi-gloss" class="on">Semi-gloss</button>
+        <button data-v="Gloss">Gloss</button>
+      </div>
+      <p class="mini">Used on all doors (wood or metal), frames, window trim and cabinets on this job.</p>
       <label>General notes<textarea id="c_notas" rows="2" placeholder="Preferred date, colors, pets, access…"></textarea></label>
     </section>
     <button class="btn-primary" data-go="areas">Next: areas</button>
@@ -94,6 +100,7 @@
       <button data-f="all" class="on">All</button>
       <button data-f="in">Interior</button>
       <button data-f="out">Exterior</button>
+      <button data-f="wp">Wallpaper</button>
     </div>
     <div id="areas" data-filter="all"></div>
     <button class="btn-add" id="addArea"><span>+</span> Add area</button>
@@ -133,9 +140,11 @@
     <div class="seg tabs" id="pickTabs">
       <button data-p="in" class="on">Interior</button>
       <button data-p="out">Exterior</button>
+      <button data-p="wp">Wallpaper</button>
     </div>
     <div class="grid" id="gridIn"></div>
     <div class="grid" id="gridOut" hidden></div>
+    <div class="grid" id="gridWp" hidden></div>
   </div>
 </div>
 

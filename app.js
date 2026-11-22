@@ -12,10 +12,19 @@ const SIZES_OUT = {
   house:[{v:'Small',d:'home under 1,200 sq ft'},{v:'Medium',d:'1,200–2,000 sq ft'},{v:'Large',d:'2,000–3,000 sq ft'},{v:'Extra large',d:'over 3,000 sq ft'}],
   fence:[{v:'Small',d:'under 50 ft long'},{v:'Medium',d:'50–100 ft'},{v:'Large',d:'100–200 ft'},{v:'Extra large',d:'over 200 ft'}],
   lanai:[{v:'Small',d:'under 100 sq ft'},{v:'Medium',d:'100–250 sq ft'},{v:'Large',d:'250–500 sq ft'},{v:'Extra large',d:'over 500 sq ft'}],
+  shed:[{v:'Small',d:'under 100 sq ft'},{v:'Medium',d:'100–200 sq ft'},{v:'Large',d:'200–400 sq ft'},{v:'Extra large',d:'over 400 sq ft'}],
   floor:[{v:'Small',d:'1-car garage'},{v:'Medium',d:'2-car garage'},{v:'Large',d:'3-car or driveway'},{v:'Extra large',d:'big driveway + walks'}]
 };
-const SIZE_HELP = {house:'Size of the home (living area). Not sure? Look the address up on Zillow.',fence:'Length of the fence or wall.',lanai:'Ceiling area of the lanai or porch.',floor:'Floor area.'};
-const sizeKind = t => /^(House|Soffit|Pressure)/.test(t)?'house':/^Fence/.test(t)?'fence':/^Lanai/.test(t)?'lanai':/^Garage floor/.test(t)?'floor':'';
+const SIZE_HELP = {house:'Size of the home (living area). Not sure? Look the address up on Zillow.',fence:'Length of the fence or wall.',lanai:'Ceiling area of the lanai or porch.',floor:'Floor area.',shed:'Floor size of the shed.'};
+const WALL_PAINT = ['SW Duration','SW SuperPaint'];
+const INT_WALL_PAINT = ['SW Duration','SW Emerald Interior','SW Super Paint'];
+const INT_CEIL_PAINT = ['Benjamin Moore Ceiling Paint','SW Super Paint','SW Emerald Interior'];
+const SOFFIT_PAINT = ['Benjamin Moore Coronado Cryli Cote','SW Duration Exterior','SW SuperPaint Exterior'];
+const TEXTURES = ['Orange peel','Knockdown','Popcorn','Skip trowel / hand'];
+const STUCCO_TEX = ['Sand finish','Lace / knockdown','Smooth (Santa Barbara)','Dash'];
+const intWallDef = () => state.cliente.tipo==='Luxury high-rise condo' ? 'SW Emerald Interior' : 'SW Duration';
+function sel(list, cur, key, label){ return `<select class="paintsel" data-sel="${key}" aria-label="${label}">${list.map(t=>`<option ${cur===t?'selected':''}>${t}</option>`).join('')}</select>`; }
+const sizeKind = t => /^(House|Soffit|Pressure)/.test(t)?'house':/^Fence/.test(t)?'fence':/^Lanai/.test(t)?'lanai':/^Garage floor/.test(t)?'floor':/^Storage shed/.test(t)?'shed':'';
 const SURF_HOUSE = ['Walls & trim','Soffit & fascia'];
 const HEIGHTS = ['Standard (8–9 ft)','10 ft','12 ft','Over 12 ft'];
 const SURF_IN = ['Walls','Ceiling','Baseboards','Crown molding','Wood paneling / wainscot'];
@@ -33,16 +42,19 @@ const REPAIRS = [
   ['parcheMd','Medium patches (hand size)'],
   ['parcheGr','Large patches (bigger than a sheet of paper)'],
   ['grietas','Wall cracks'],
-  ['grietasTecho','Ceiling cracks (patch + texture + repaint that ceiling)']
+  ['grietasTecho','Ceiling cracks (patch + texture + repaint that ceiling)'],
+  ['textura','Special texture match — EXTRA (each repair area)']
 ];
 const COND_IN = ['Big color change','Needs primer','Popcorn ceiling','Damaged texture','Stains / moisture','Lots of furniture','Occupied home','Wallpaper on wall','Knotty / stained wood (needs stain-blocking primer)','Wall decor to remove'];
 
 const COUNTS_OUT = [
   ['puertasExt','Exterior doors'],
   ['puertasGaraje','Garage doors'],
+  ['portones','Gate doors'],
   ['ventanas','Windows / trim'],
   ['shutters','Shutters'],
   ['grietas','Stucco / wall cracks'],
+  ['texturaExt','Stucco texture match — EXTRA (each repair area)'],
   ['madera','Wood repairs'],
   ['gables','Gables (siding triangles)'],
   ['bajantes','Downspouts']
@@ -54,8 +66,11 @@ const SOFFIT_W = [
 ];
 const SOFFIT_MAT = ['Vented aluminum / vinyl','Wood','Stucco','Tongue & groove boards'];
 const hasSoffit = t => /Soffit|Lanai|House/.test(t);
-const EXTRA_TYPES = ['Stucco crack','Map cracking (many fine cracks)','Old patch that shows','Peeling paint','Rust on metal','Rotten wood','Mildew / mold','Old caulk','Water damage','Hole / dent','Torn drywall paper (seal + skim coat)','Glue / adhesive residue','Other'];
+const EXTRA_TYPES = ['Stucco crack','Map cracking (many fine cracks)','Old patch that shows','Peeling paint','Rust on metal','Rotten wood','Mildew / mold','Old caulk','Water damage','Hole / dent','Torn drywall paper (seal + skim coat)','Skim coat','Glue / adhesive residue','Other'];
 const EXTRA_SIZE = ['Small','Medium','Large','Whole wall'];
+const SKIM = 'Skim coat';
+const SKIM_SIZE = [{v:'Spot',d:'up to 2×2 ft'},{v:'Section',d:'about 4×4 ft'},{v:'Half wall',d:'half of one wall'},{v:'Whole wall',d:'one wall'},{v:'Whole room',d:'all walls of this room'}];
+const isSkim = x => x.tipo===SKIM;
 const SHUT_TYPE = ['Accordion','Storm panels','Roll-down','Bahama / colonial'];
 const SHUT_PREP = [
   {v:'Clean and paint only', d:'good condition'},
@@ -64,14 +79,23 @@ const SHUT_PREP = [
 ];
 const COND_OUT = ['Peeling paint','Heavy mildew','Cracked stucco','Rotten wood','Rust','Hard access / tall ladder','Plants against the wall'];
 
+const TYPES_WP = ['Wallpaper — Powder room','Wallpaper — Bathroom','Wallpaper — Bedroom','Wallpaper — Living room','Wallpaper — Dining room','Wallpaper — Foyer / entry','Wallpaper — Hallway','Wallpaper — Stairway','Wallpaper — Office','Wallpaper — Kitchen','Wallpaper — Accent wall','Wallpaper — Other'];
+const WP_TYPES = [{v:'Peel-and-stick',d:''},{v:'Vinyl and vinyl-coated',d:'incl. vinyl grasscloth look'},{v:'Traditional paste and non-woven',d:''},{v:'Designer and textured',d:'embossed, flocked, fabric-backed'},{v:'Grasscloth and natural fiber',d:''},{v:'Murals and custom prints',d:''}];
+const WP_OPTS = [{v:'Walls over 10 ft / stairwell',d:''},{v:'Large-repeat pattern',d:'repeat over 24 in'},{v:'Needs 2nd coat of primer',d:''},{v:'Needs skim coat',d:'rough or textured walls'}];
+const WP_RM = [{v:'None',d:'no old wallpaper'},{v:'Strippable or peel-and-stick',d:'comes off easy'},{v:'Vinyl, painted-over or several layers',d:'hard removal'}];
+const WP_SURF = {wall:'Wall',ceil:'Ceiling',open:'Opening to deduct'};
+const wpSf = r => { const w=parseFloat(r.w)||0, h=parseFloat(r.h)||0; return w*h/144; };
+function wpTotals(a){ const R=a.wpRows||[]; const sum=k=>R.filter(r=>r.k===k).reduce((t,r)=>t+wpSf(r),0);
+  const open=R.filter(r=>r.k==='open'&&wpSf(r)>20).reduce((t,r)=>t+wpSf(r),0);
+  return {walls:Math.max(0,Math.round(sum('wall')-open)), ceil:Math.round(sum('ceil')), open:Math.round(open)}; }
 const TYPES_IN = ['Bedroom','Master bedroom','Living room','Foyer','Dining room','Kitchen','Kitchen island','Bathroom','Master bathroom','Half bath','Hallway','Stairway','Office','Laundry room','Closet','Entry','Garage (interior)','Other interior'];
-const TYPES_OUT = ['House — exterior walls','Soffit & fascia','Lanai / porch ceiling','Doors & garage','Windows & shutters','Pressure washing','Garage floor / concrete','Fence / gate','Other exterior'];
+const TYPES_OUT = ['House — exterior walls','Soffit & fascia','Lanai / porch ceiling','Doors & garage','Windows & shutters','Pressure washing','Garage floor / concrete','Fence / gate','Storage shed','Other exterior'];
 
 // ---------- Estado ----------
 let state = blank();
 function blank(){
   return {id:'V'+Date.now().toString(36).toUpperCase(), creado:new Date().toISOString(), modo:'antes',
-    cliente:{nombre:'',tel:'',dir:'',ciudad:'Sarasota',tipo:'House',pisos:'1',pintura:'SRP',notas:''}, areas:[]};
+    cliente:{nombre:'',tel:'',dir:'',ciudad:'Sarasota',tipo:'House',pisos:'1',pintura:'SRP',brilloTrim:'Semi-gloss',notas:''}, areas:[]};
 }
 const photos = new Map(); // photoId -> dataURL
 
@@ -160,11 +184,14 @@ const $ = s=>document.querySelector(s);
 const esc = s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function toast(m){ const t=$('#toast'); t.textContent=m; t.hidden=false; clearTimeout(t._t); t._t=setTimeout(()=>t.hidden=true,2600); }
 const isOut = a=> TYPES_OUT.includes(a.tipo);
+const isWp = a=> /^Wallpaper/.test(a.tipo||'');
 const CO_CITIES=['Steamboat Springs','Hayden','Oak Creek','Craig'];
 const stateOf = c=> CO_CITIES.includes(c)?'Colorado':(c==='Other'?'—':'Florida');
 
 function newArea(tipo){
   const n = state.areas.filter(a=>a.tipo===tipo).length;
+  if(/^Wallpaper/.test(tipo)) return {id:'A'+Math.random().toString(36).slice(2,8), tipo, nombre: n? `${tipo} ${n+1}`:tipo,
+    wpTipo:'Traditional paste and non-woven', wpRows:[{id:'R'+Math.random().toString(36).slice(2,7),k:'wall',w:'',h:''}], wpOpts:[], wpRm:'None', sup:[], extras:[], cnt:{}, cond:[], nota:'', fotos:[]};
   return {id:'A'+Math.random().toString(36).slice(2,8), tipo, nombre: n? `${tipo} ${n+1}`:tipo,
     tam:'Medium', altura:HEIGHTS[0], sup: /^House/.test(tipo)?[...SURF_HOUSE]:(isOutT(tipo)?[]:['Walls']), ancho:'Standard', mat:'', shutTipo:'', shutPrep:'', extras:[], cnt:{}, cond:[], nota:'', fotos:[]};
 }
@@ -184,6 +211,7 @@ function renderClient(){
     const el=$('#'+id); el.value=c[k]; el.oninput=()=>{c[k]=el.value; save(); renderChecks();};
   });
   segBind($('#c_pintura'), ()=>c.pintura, v=>c.pintura=v);
+  segBind($('#c_brillo'), ()=>c.brilloTrim||'Semi-gloss', v=>c.brilloTrim=v);
   segBind($('#mode'), ()=>state.modo, v=>{state.modo=v; renderAreas();});
 }
 
@@ -205,9 +233,9 @@ function extraHTML(a,x,k){
   const ph=phHTML(a.fotos.filter(f=>f.ex===x.id));
   return `<div class="extra" data-ex="${x.id}">
     <div class="extra-top"><b>Extra ${k+1}</b>
-      <select data-xf="tipo" aria-label="Extra work type">${EXTRA_TYPES.map(t=>`<option ${x.tipo===t?'selected':''}>${t}</option>`).join('')}</select>
+      <select data-xf="tipo" aria-label="Extra work type">${EXTRA_TYPES.filter(t=>t!==SKIM||!isOut(a)||isSkim(x)).map(t=>`<option ${x.tipo===t?'selected':''}>${t}</option>`).join('')}</select>
       <button class="del" data-delex="${x.id}">Delete</button></div>
-    ${chips(EXTRA_SIZE, v=>x.tam===v, 'xtam')}
+    ${isSkim(x)?`<p class="mini">How much of the wall needs skim coat? Take one photo that shows the WHOLE area so the price can be checked.</p>${chips(SKIM_SIZE, v=>x.tam===v, 'xtam')}`:chips(EXTRA_SIZE, v=>x.tam===v, 'xtam')}
     <div class="photos">${ph}</div>
     <div class="photo-btns">
       <label>Detail photo<input type="file" accept="image/*" capture="environment" data-photo="antes" data-ex="${x.id}"></label>
@@ -216,7 +244,39 @@ function extraHTML(a,x,k){
     <input data-xf="nota" value="${esc(x.nota)}" placeholder="Where it is / what it needs (e.g. back wall, next to electric panel)">
   </div>`;
 }
+function wpRowHTML(r){ const sf=wpSf(r); const note = r.k==='open' ? (sf>0&&sf<=20?' · not deducted (20 sq ft or less)':'') : '';
+  return `<div class="wprow" data-row="${r.id}">
+    <select data-wk="${r.id}" aria-label="Surface">${Object.entries(WP_SURF).map(([k,l])=>`<option value="${k}" ${r.k===k?'selected':''}>${l}</option>`).join('')}</select>
+    <div class="wpdim"><input inputmode="decimal" data-wm="${r.id}:w" value="${esc(r.w)}" placeholder="Width" aria-label="Width in inches"><span>×</span><input inputmode="decimal" data-wm="${r.id}:h" value="${esc(r.h)}" placeholder="Height" aria-label="Height in inches"><span class="u">in</span></div>
+    <div class="wpsf"><b data-sf="${r.id}">${sf?sf.toFixed(1):'0'}</b> sq ft<small data-sfn="${r.id}">${note}</small></div>
+    <button class="del" data-wpdel="${r.id}" aria-label="Delete row">Delete</button></div>`; }
+function wpTotHTML(a){ const t=wpTotals(a); return `Walls <b>${t.walls}</b> sq ft${t.open?` (after −${t.open} openings)`:''} · Ceiling <b>${t.ceil}</b> sq ft`; }
+function wpAreaHTML(a,i){
+  a.wpRows=a.wpRows||[]; a.wpOpts=a.wpOpts||[];
+  const ph=phHTML(a.fotos.filter(f=>!f.ex));
+  const mainLbl = state.modo==='despues' ? 'AFTER photo' : 'BEFORE photo';
+  const mainTipo = state.modo==='despues' ? 'despues' : 'antes';
+  return `<div class="area" data-id="${a.id}" data-kind="wp">
+    <div class="area-top"><div class="num">${i+1}</div><div class="tt"><small>Wallpaper</small><input value="${esc(a.nombre)}" data-f="nombre" aria-label="Area name"></div><button class="del" data-delarea>Delete</button></div>
+    <div class="area-body">
+      <div class="sub">Photos</div>
+      <div class="photos">${ph}</div>
+      <div class="photo-btns">
+        <label>${mainLbl}<input type="file" accept="image/*" capture="environment" data-photo="${mainTipo}"></label>
+        <label class="alt">From gallery<input type="file" accept="image/*" multiple data-photo="${mainTipo}"></label>
+      </div>
+      <div class="sub">Paper type</div><p class="mini">The customer buys the wallpaper. Check the label or ask the customer.</p>${chips(WP_TYPES, v=>a.wpTipo===v, 'wpt')}
+      <div class="sub">Measurements (inches)</div><p class="mini">Measure each wall or ceiling: width × height in inches. Add doors, windows or openings bigger than 20 sq ft as "Opening to deduct".</p>
+      <div class="wprows">${a.wpRows.map(wpRowHTML).join('')}</div>
+      <div class="wpadd"><button class="btn-extra" data-wpadd="wall">+ Wall</button><button class="btn-extra" data-wpadd="ceil">+ Ceiling</button><button class="btn-extra" data-wpadd="open">+ Opening</button></div>
+      <div class="wptot" data-wptot="${a.id}">${wpTotHTML(a)}</div>
+      <div class="sub">Extras (only if the job needs them)</div>${chips(WP_OPTS, v=>a.wpOpts.includes(v), 'wpo')}
+      <div class="sub">Old wallpaper to remove?</div>${chips(WP_RM, v=>(a.wpRm||'None')===v, 'wprm')}
+      <div class="sub">Note</div><textarea rows="2" data-f="nota" placeholder="Seams, pattern direction, where the paper is stored…">${esc(a.nota)}</textarea>
+    </div></div>`;
+}
 function areaHTML(a,i){
+  if(isWp(a)) return wpAreaHTML(a,i);
   a.extras=a.extras||[];
   const out=isOut(a);
   const ph=phHTML(a.fotos.filter(f=>!f.ex));
@@ -234,19 +294,25 @@ function areaHTML(a,i){
       ${out?'':`
       <div class="sub">Size</div>${chips(SIZES, v=>a.tam===v, 'tam')}
       <div class="sub">Ceiling height</div>${chips(HEIGHTS, v=>a.altura===v, 'alt')}
-      <div class="sub">What gets painted?</div>${chips(SURF_IN, v=>a.sup.includes(v), 'sup')}`}
+      <div class="sub">What gets painted?</div>${chips(SURF_IN, v=>a.sup.includes(v), 'sup')}
+      ${a.sup.includes('Walls')?`<div class="sub">Wall paint</div>${sel(INT_WALL_PAINT, a.pinturaInt||intWallDef(), 'pinturaInt', 'Wall paint')}`:''}
+      ${a.sup.includes('Ceiling')?`<div class="sub">Ceiling paint</div>${sel(INT_CEIL_PAINT, a.pinturaTecho||INT_CEIL_PAINT[0], 'pinturaTecho', 'Ceiling paint')}`:''}`}
       ${out&&sizeKind(a.tipo)?`
       <div class="sub">Size</div><p class="mini">${SIZE_HELP[sizeKind(a.tipo)]}</p>${chips(SIZES_OUT[sizeKind(a.tipo)], v=>a.tam===v, 'tam')}`:''}
       ${out&&/^House/.test(a.tipo)?`
-      <div class="sub">What gets painted?</div><p class="mini">Walls & trim includes electrical boxes and small entry / porch ceilings. A big lanai ceiling is its own area.</p>${chips(SURF_HOUSE, v=>a.sup.includes(v), 'sup')}`:''}
+      <div class="sub">What gets painted?</div><p class="mini">Walls & trim includes electrical boxes and small entry / porch ceilings. A big lanai ceiling is its own area.</p>${chips(SURF_HOUSE, v=>a.sup.includes(v), 'sup')}
+      <div class="sub">Wall paint</div><p class="mini">Used for walls, trim, fence, shed and garage doors on this job.</p>${sel(WALL_PAINT, a.pinturaExt||WALL_PAINT[0], 'pinturaExt', 'Exterior wall paint')}`:''}
       ${out&&hasSoffit(a.tipo)&&(!/^House/.test(a.tipo)||a.sup.includes('Soffit & fascia'))?`
       <div class="sub">Soffit / overhang width</div>${chips(SOFFIT_W, v=>(a.ancho||'Standard')===v, 'ancho')}
-      <div class="sub">Soffit material</div>${chips(SOFFIT_MAT, v=>a.mat===v, 'mat')}`:''}
+      <div class="sub">Soffit material</div>${chips(SOFFIT_MAT, v=>a.mat===v, 'mat')}
+      <div class="sub">Soffit paint</div>${sel(SOFFIT_PAINT, a.pinturaSoffit||SOFFIT_PAINT[0], 'pinturaSoffit', 'Soffit paint')}`:''}
       <div class="sub">Count</div>${steppers(out?COUNTS_OUT:COUNTS_IN, a.cnt)}
       ${out&&((a.cnt.shutters||0)>0||/shutters/i.test(a.tipo))?`
       <div class="sub">Shutter type</div>${chips(SHUT_TYPE, v=>a.shutTipo===v, 'sht')}
       <div class="sub">Shutter prep</div>${chips(SHUT_PREP, v=>a.shutPrep===v, 'shp')}`:''}
       ${out?'':`<div class="sub">Repairs</div>${steppers(REPAIRS, a.cnt)}`}
+      ${!out&&(a.cnt.textura||0)>0?`<div class="sub">Which texture? (extra charge)</div><p class="mini">Count each patch or crack area that needs the special texture. Ceiling cracks already include texture.</p>${chips(TEXTURES, v=>(a.textura||'Knockdown')===v, 'tex')}`:''}
+      ${out&&(a.cnt.texturaExt||0)>0?`<div class="sub">Which stucco texture? (extra charge)</div>${chips(STUCCO_TEX, v=>(a.texturaExt||'Sand finish')===v, 'etex')}`:''}
       <div class="sub">Condition</div>${chips(out?COND_OUT:COND_IN, v=>a.cond.includes(v), 'cond')}
       <div class="sub">Extra work / details</div>
       <p class="mini">Cracks, rust, rotten wood, peeling paint… Each detail with its own photo so it can be priced separately.</p>
@@ -268,10 +334,14 @@ function renderChecks(){
   const c=state.cliente, A=state.areas, tipo=state.modo;
   updHdr();
   const noPh = A.filter(a=>!a.fotos.some(f=>f.tipo===tipo&&!f.ex)).map(a=>a.nombre);
+  const wpNo = A.filter(a=>isWp(a)&&(()=>{const t=wpTotals(a); return t.walls+t.ceil===0;})()).map(a=>a.nombre);
+  const skNo = A.flatMap(a=>(a.extras||[]).filter(x=>isSkim(x)&&!a.fotos.some(f=>f.ex===x.id)).map(()=>a.nombre));
   const items=[
     [!!c.nombre.trim(),'Customer name'],
     [!!c.dir.trim(),'Address'],
     [A.length>0, A.length? `${A.length} area(s)` : 'At least one area'],
+    ...(A.some(isWp) ? [[wpNo.length===0, wpNo.length? `Wallpaper needs measurements: ${wpNo.join(', ')}` : 'Wallpaper measured']] : []),
+    ...(A.some(a=>(a.extras||[]).some(isSkim)) ? [[skNo.length===0, skNo.length? `Skim coat needs a detail photo: ${skNo.join(', ')}` : 'Skim coat photo taken']] : []),
     [A.length>0 && noPh.length===0, noPh.length? `Missing ${tipo==='despues'?'AFTER':'BEFORE'} photo: ${noPh.join(', ')}` : `${tipo==='despues'?'AFTER':'BEFORE'} photos in every area`]
   ];
   $('#checks').innerHTML=items.map(([ok,t])=>`<div class="chk ${ok?'':'no'}"><b>${ok?'✓':'!'}</b><span>${esc(t)}</span></div>`).join('');
@@ -289,7 +359,15 @@ $('#areas').addEventListener('click',e=>{
   else if(b.dataset.sht){ a.shutTipo = a.shutTipo===b.dataset.sht?'':b.dataset.sht; }
   else if(b.dataset.shp){ a.shutPrep = b.dataset.shp; }
   else if(b.dataset.ancho){ a.ancho=b.dataset.ancho; }
+  else if(b.dataset.wp){ a.pinturaExt=b.dataset.wp; }
+  else if(b.dataset.tex){ a.textura=b.dataset.tex; }
+  else if(b.dataset.etex){ a.texturaExt=b.dataset.etex; }
   else if(b.dataset.mat){ a.mat = a.mat===b.dataset.mat?'':b.dataset.mat; }
+  else if(b.dataset.wpt){ a.wpTipo=b.dataset.wpt; }
+  else if(b.dataset.wpo){ const v=b.dataset.wpo; a.wpOpts=(a.wpOpts||[]).includes(v)?a.wpOpts.filter(x=>x!==v):[...(a.wpOpts||[]),v]; }
+  else if(b.dataset.wprm){ a.wpRm=b.dataset.wprm; }
+  else if(b.dataset.wpadd){ (a.wpRows=a.wpRows||[]).push({id:'R'+Math.random().toString(36).slice(2,7),k:b.dataset.wpadd,w:'',h:''}); }
+  else if(b.dataset.wpdel){ a.wpRows=(a.wpRows||[]).filter(r=>r.id!==b.dataset.wpdel); }
   else if(b.dataset.sup){ const v=b.dataset.sup; a.sup=a.sup.includes(v)?a.sup.filter(x=>x!==v):[...a.sup,v]; }
   else if(b.dataset.cond){ const v=b.dataset.cond; a.cond=a.cond.includes(v)?a.cond.filter(x=>x!==v):[...a.cond,v]; }
   else if(b.dataset.inc){ a.cnt[b.dataset.inc]=(a.cnt[b.dataset.inc]||0)+1; }
@@ -302,12 +380,23 @@ $('#areas').addEventListener('click',e=>{
   save(); const y=window.scrollY; renderAreas(); window.scrollTo(0,y);
 });
 $('#areas').addEventListener('input',e=>{
+  const wm=e.target.dataset.wm, wk=e.target.dataset.wk;
+  if(wm||wk){ const a=areaOf(e.target); if(!a) return; const [rid,dim]=(wm||wk+':k').split(':'); const r=(a.wpRows||[]).find(x=>x.id===rid); if(!r) return;
+    if(dim==='k') r.k=e.target.value; else r[dim]=e.target.value.replace(/[^0-9.]/g,'');
+    const sf=wpSf(r); const box=e.target.closest('.area');
+    box.querySelector(`[data-sf="${rid}"]`).textContent=sf?sf.toFixed(1):'0';
+    box.querySelector(`[data-sfn="${rid}"]`).textContent= r.k==='open'&&sf>0&&sf<=20?' · not deducted (20 sq ft or less)':'';
+    box.querySelector('[data-wptot]').innerHTML=wpTotHTML(a); save(); renderChecks(); return; }
   const xf=e.target.dataset.xf;
-  if(xf){ const a=areaOf(e.target); const x=a&&a.extras.find(x=>x.id===e.target.closest('.extra').dataset.ex); if(x){ x[xf]=e.target.value; save(); } return; }
+  if(xf){ const a=areaOf(e.target); const x=a&&a.extras.find(x=>x.id===e.target.closest('.extra').dataset.ex); if(x){ x[xf]=e.target.value;
+    if(xf==='tipo'){ if(isSkim(x)&&!SKIM_SIZE.some(z=>z.v===x.tam)) x.tam='Section'; if(!isSkim(x)&&!EXTRA_SIZE.includes(x.tam)) x.tam='Medium'; save(); const y=window.scrollY; renderAreas(); renderChecks(); window.scrollTo(0,y); return; }
+    save(); } return; }
   const f=e.target.dataset.f; if(!f) return; const a=areaOf(e.target); if(a){ a[f]=e.target.value; save(); if(f==='nombre') renderChecks(); }
 });
 $('#areas').addEventListener('change',async e=>{
-  const inp=e.target; if(!inp.dataset.photo) return; const a=areaOf(inp); if(!a||!inp.files.length) return;
+  const inp=e.target;
+  if(inp.dataset.sel){ const a=areaOf(inp); if(a){ a[inp.dataset.sel]=inp.value; save(); } return; }
+  if(!inp.dataset.photo) return; const a=areaOf(inp); if(!a||!inp.files.length) return;
   const files=[...inp.files]; inp.value='';
   $('#busyTxt').textContent='Saving photo…'; $('#busy').hidden=false;
   for(const file of files){
@@ -339,7 +428,7 @@ function compress(file){
 
 // ---------- Selector de tipo ----------
 function fillGrid(id,list,kind){ $(id).innerHTML=list.map(t=>`<button data-t="${esc(t)}"><span class="gname">${esc(t)}</span><span class="grow"><span class="gsub">${kind}</span><span class="gplus">+</span></span></button>`).join(''); }
-fillGrid('#gridIn',TYPES_IN,'Interior'); fillGrid('#gridOut',TYPES_OUT,'Exterior');
+fillGrid('#gridIn',TYPES_IN,'Interior'); fillGrid('#gridOut',TYPES_OUT,'Exterior'); fillGrid('#gridWp',TYPES_WP.map(t=>t),'Wallpaper');
 $('#addArea').onclick=()=>{ $('#picker').hidden=false; };
 $('#pickClose').onclick=()=>{ $('#picker').hidden=true; };
 $('#picker').addEventListener('click',e=>{
@@ -353,12 +442,24 @@ $('#picker').addEventListener('click',e=>{
 function labelCnt(k,out){ const all=out?[...COUNTS_OUT,...COUNTS_IN,...REPAIRS]:[...COUNTS_IN,...REPAIRS,...COUNTS_OUT]; return (all.find(x=>x[0]===k)||[k,k])[1]; }
 function areaLines(a){
   const L=[];
-  if(!isOut(a)){ L.push(`Size: ${a.tam}   ·   Ceiling: ${a.altura}`); L.push(`Paint: ${a.sup.length?a.sup.join(', '):'—'}`); }
+  if(isWp(a)){ const t=wpTotals(a);
+    L.push(`Paper type: ${a.wpTipo||'—'} (customer supplies the paper)`);
+    (a.wpRows||[]).forEach((r,j)=>{ const sf=wpSf(r); L.push(`${WP_SURF[r.k]} ${j+1}: ${r.w||'?'} × ${r.h||'?'} in = ${sf.toFixed(1)} sq ft${r.k==='open'&&sf<=20?' (not deducted)':''}`); });
+    L.push(`Total to cover: walls ${t.walls} sq ft${t.open?' (openings −'+t.open+')':''} · ceiling ${t.ceil} sq ft`);
+    if((a.wpOpts||[]).length) L.push(`Extras: ${a.wpOpts.join(', ')}`);
+    L.push(`Old wallpaper removal: ${a.wpRm||'None'}`);
+    if(a.nota.trim()) L.push(`Note: ${a.nota.trim()}`);
+    return L; }
+  if(!isOut(a)){ L.push(`Size: ${a.tam}   ·   Ceiling: ${a.altura}`); L.push(`Paint: ${a.sup.length?a.sup.join(', '):'—'}`);
+    const pp=[]; if(a.sup.includes('Walls')) pp.push(`Walls: ${a.pinturaInt||intWallDef()}`); if(a.sup.includes('Ceiling')) pp.push(`Ceiling: ${a.pinturaTecho||INT_CEIL_PAINT[0]}`);
+    if(pp.length) L.push(`Paint product: ${pp.join('   ·   ')}`); }
   if(isOut(a)&&sizeKind(a.tipo)){ const z=SIZES_OUT[sizeKind(a.tipo)].find(x=>x.v===a.tam); L.push(`Size: ${a.tam}${z?' ('+z.d+')':''}`); }
-  if(isOut(a)&&/^House/.test(a.tipo)) L.push(`Paint: ${a.sup.length?a.sup.join(', '):'—'}`);
-  if(isOut(a)&&hasSoffit(a.tipo)&&(!/^House/.test(a.tipo)||a.sup.includes('Soffit & fascia'))) L.push(`Soffit: ${a.ancho||'Standard'}${a.mat?'   ·   '+a.mat:''}`);
+  if(isOut(a)&&/^House/.test(a.tipo)) L.push(`Paint: ${a.sup.length?a.sup.join(', '):'—'}   ·   ${a.pinturaExt||WALL_PAINT[0]}`);
+  if(isOut(a)&&hasSoffit(a.tipo)&&(!/^House/.test(a.tipo)||a.sup.includes('Soffit & fascia'))) L.push(`Soffit: ${a.ancho||'Standard'}${a.mat?'   ·   '+a.mat:''}   ·   ${a.pinturaSoffit||SOFFIT_PAINT[0]}`);
   const c=Object.entries(a.cnt).filter(([,n])=>n>0).map(([k,n])=>`${labelCnt(k,isOut(a))}: ${n}`);
   if(c.length) L.push(c.join('   ·   '));
+  if((a.cnt.textura||0)>0) L.push(`Special texture (extra): ${a.textura||'Knockdown'}`);
+  if((a.cnt.texturaExt||0)>0) L.push(`Stucco texture (extra): ${a.texturaExt||'Sand finish'}`);
   if(a.shutTipo||a.shutPrep) L.push(`Shutter type & prep: ${[a.shutTipo,a.shutPrep].filter(Boolean).join('   ·   ')}`);
   if(a.cond.length) L.push(`Condition: ${a.cond.join(', ')}`);
   if(a.nota.trim()) L.push(`Note: ${a.nota.trim()}`);
@@ -382,7 +483,7 @@ async function buildPDF(){
   doc.text(`${new Date().toLocaleString('en-US')}   ·   ${state.id}`, W-M, y+38, {align:'right'});
   y+=70; doc.setDrawColor(...navy); doc.setLineWidth(1.2); doc.line(M,y,W-M,y); y+=18;
   doc.setTextColor(20,30,45); doc.setFontSize(11);
-  const info=[['Customer',c.nombre],['Phone',c.tel],['Address',`${c.dir}, ${c.ciudad}`],['State',stateOf(c.ciudad)],['Property',`${c.tipo} · ${c.pisos} story(ies)`],['Paint',c.pintura==='Cliente'?'Customer buys':'SRP buys'],['Areas',String(state.areas.length)]];
+  const info=[['Customer',c.nombre],['Phone',c.tel],['Address',`${c.dir}, ${c.ciudad}`],['State',stateOf(c.ciudad)],['Property',`${c.tipo} · ${c.pisos} story(ies)`],['Paint',c.pintura==='Cliente'?'Customer buys':'SRP buys'],['Trim paint',`SW Emerald Urethane, ${(c.brilloTrim||'Semi-gloss').toLowerCase()}`],['Areas',String(state.areas.length)]];
   info.forEach(([k,v])=>{ doc.setFont('helvetica','bold'); doc.text(k+':',M,y); doc.setFont('helvetica','normal'); doc.text(String(v||'—'),M+80,y); y+=16; });
   if(c.notas.trim()){ doc.setFont('helvetica','bold'); doc.text('Notes:',M,y); doc.setFont('helvetica','normal'); const t=doc.splitTextToSize(c.notas.trim(),W-2*M-80); doc.text(t,M+80,y); y+=t.length*14+2; }
   y+=8;
@@ -481,7 +582,7 @@ $('#cats').addEventListener('click',e=>{ const b=e.target.closest('button[data-f
   $('#cats').querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b)); $('#areas').dataset.filter=b.dataset.f; });
 $('#pickTabs').addEventListener('click',e=>{ const b=e.target.closest('button[data-p]'); if(!b) return;
   $('#pickTabs').querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
-  $('#gridIn').hidden=b.dataset.p!=='in'; $('#gridOut').hidden=b.dataset.p!=='out'; });
+  $('#gridIn').hidden=b.dataset.p!=='in'; $('#gridOut').hidden=b.dataset.p!=='out'; $('#gridWp').hidden=b.dataset.p!=='wp'; });
 $('#startBtn').onclick=()=>{ $('#splash').hidden=true; };
 
 $('#visitsBtn').onclick=openVisits; $('#splashVisits').onclick=openVisits;
