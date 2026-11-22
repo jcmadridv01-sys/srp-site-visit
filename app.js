@@ -17,12 +17,15 @@ const SIZES_OUT = {
 };
 const SIZE_HELP = {house:'Size of the home (living area). Not sure? Look the address up on Zillow.',fence:'Length of the fence or wall.',lanai:'Ceiling area of the lanai or porch.',floor:'Floor area.',shed:'Floor size of the shed.'};
 const WALL_PAINT = ['SW Duration','SW SuperPaint'];
-const INT_WALL_PAINT = ['SW Duration','SW Emerald Interior','SW Super Paint'];
-const INT_CEIL_PAINT = ['Benjamin Moore Ceiling Paint','SW Super Paint','SW Emerald Interior'];
+const INT_WALL_PAINT = ['SW Duration','SW Super Paint'];
+const INT_CEIL_PAINT = ['Benjamin Moore Ceiling Paint','SW Super Paint'];
+const TRIM_SHEEN = ['Semi-gloss','Gloss'];
+const trimOf = a => a.brilloTrim || state.cliente.brilloTrim || 'Semi-gloss';
+const trimHTML = (a,what) => `<div class="sub">Trim &amp; door paint</div><p class="mini">SW Emerald Urethane Trim Enamel — used on ${what} in this area.</p>${chips(TRIM_SHEEN, v=>trimOf(a)===v, 'brt')}`;
 const SOFFIT_PAINT = ['Benjamin Moore Coronado Cryli Cote','SW Duration Exterior','SW SuperPaint Exterior'];
 const TEXTURES = ['Orange peel','Knockdown','Popcorn','Skip trowel / hand'];
 const STUCCO_TEX = ['Sand finish','Lace / knockdown','Smooth (Santa Barbara)','Dash'];
-const intWallDef = () => state.cliente.tipo==='Luxury high-rise condo' ? 'SW Emerald Interior' : 'SW Duration';
+const intWallDef = () => 'SW Duration';
 function sel(list, cur, key, label){ return `<select class="paintsel" data-sel="${key}" aria-label="${label}">${list.map(t=>`<option ${cur===t?'selected':''}>${t}</option>`).join('')}</select>`; }
 const sizeKind = t => /^(House|Soffit|Pressure)/.test(t)?'house':/^Fence/.test(t)?'fence':/^Lanai/.test(t)?'lanai':/^Garage floor/.test(t)?'floor':/^Storage shed/.test(t)?'shed':'';
 const SURF_HOUSE = ['Walls & trim','Soffit & fascia'];
@@ -211,7 +214,6 @@ function renderClient(){
     const el=$('#'+id); el.value=c[k]; el.oninput=()=>{c[k]=el.value; save(); renderChecks();};
   });
   segBind($('#c_pintura'), ()=>c.pintura, v=>c.pintura=v);
-  segBind($('#c_brillo'), ()=>c.brilloTrim||'Semi-gloss', v=>c.brilloTrim=v);
   segBind($('#mode'), ()=>state.modo, v=>{state.modo=v; renderAreas();});
 }
 
@@ -295,13 +297,15 @@ function areaHTML(a,i){
       <div class="sub">Size</div>${chips(SIZES, v=>a.tam===v, 'tam')}
       <div class="sub">Ceiling height</div>${chips(HEIGHTS, v=>a.altura===v, 'alt')}
       <div class="sub">What gets painted?</div>${chips(SURF_IN, v=>a.sup.includes(v), 'sup')}
-      ${a.sup.includes('Walls')?`<div class="sub">Wall paint</div>${sel(INT_WALL_PAINT, a.pinturaInt||intWallDef(), 'pinturaInt', 'Wall paint')}`:''}
-      ${a.sup.includes('Ceiling')?`<div class="sub">Ceiling paint</div>${sel(INT_CEIL_PAINT, a.pinturaTecho||INT_CEIL_PAINT[0], 'pinturaTecho', 'Ceiling paint')}`:''}`}
+      ${a.sup.includes('Walls')?`<div class="sub">Wall paint</div>${sel(INT_WALL_PAINT, INT_WALL_PAINT.includes(a.pinturaInt)?a.pinturaInt:intWallDef(), 'pinturaInt', 'Wall paint')}`:''}
+      ${trimHTML(a,'doors (wood or metal), door frames, baseboards, window trim, closets and cabinets')}
+      ${a.sup.includes('Ceiling')?`<div class="sub">Ceiling paint</div>${sel(INT_CEIL_PAINT, INT_CEIL_PAINT.includes(a.pinturaTecho)?a.pinturaTecho:INT_CEIL_PAINT[0], 'pinturaTecho', 'Ceiling paint')}`:''}`}
       ${out&&sizeKind(a.tipo)?`
       <div class="sub">Size</div><p class="mini">${SIZE_HELP[sizeKind(a.tipo)]}</p>${chips(SIZES_OUT[sizeKind(a.tipo)], v=>a.tam===v, 'tam')}`:''}
       ${out&&/^House/.test(a.tipo)?`
       <div class="sub">What gets painted?</div><p class="mini">Walls & trim includes electrical boxes and small entry / porch ceilings. A big lanai ceiling is its own area.</p>${chips(SURF_HOUSE, v=>a.sup.includes(v), 'sup')}
-      <div class="sub">Wall paint</div><p class="mini">Used for walls, trim, fence, shed and garage doors on this job.</p>${sel(WALL_PAINT, a.pinturaExt||WALL_PAINT[0], 'pinturaExt', 'Exterior wall paint')}`:''}
+      <div class="sub">Wall paint</div><p class="mini">Used for walls, trim, fence, shed and garage doors on this job.</p>${sel(WALL_PAINT, a.pinturaExt||WALL_PAINT[0], 'pinturaExt', 'Exterior wall paint')}
+      ${trimHTML(a,'entry doors and gates (wood or metal)')}`:''}
       ${out&&hasSoffit(a.tipo)&&(!/^House/.test(a.tipo)||a.sup.includes('Soffit & fascia'))?`
       <div class="sub">Soffit / overhang width</div>${chips(SOFFIT_W, v=>(a.ancho||'Standard')===v, 'ancho')}
       <div class="sub">Soffit material</div>${chips(SOFFIT_MAT, v=>a.mat===v, 'mat')}
@@ -353,6 +357,7 @@ $('#areas').addEventListener('click',e=>{
   const b=e.target.closest('button'); if(!b) return; const a=areaOf(b); if(!a) return;
   if(b.dataset.tam){ a.tam=b.dataset.tam; }
   else if(b.dataset.alt){ a.altura=b.dataset.alt; }
+  else if(b.dataset.brt){ a.brilloTrim=b.dataset.brt; }
   else if('addex' in b.dataset){ a.extras.push({id:'X'+Math.random().toString(36).slice(2,8), tipo:EXTRA_TYPES[0], tam:'Small', nota:''}); }
   else if(b.dataset.delex){ const id=b.dataset.delex; a.fotos.filter(f=>f.ex===id).forEach(f=>photos.delete(f.id)); a.fotos=a.fotos.filter(f=>f.ex!==id); a.extras=a.extras.filter(x=>x.id!==id); }
   else if(b.dataset.xtam){ const x=a.extras.find(x=>x.id===b.closest('.extra').dataset.ex); if(x) x.tam=b.dataset.xtam; }
@@ -451,10 +456,10 @@ function areaLines(a){
     if(a.nota.trim()) L.push(`Note: ${a.nota.trim()}`);
     return L; }
   if(!isOut(a)){ L.push(`Size: ${a.tam}   ·   Ceiling: ${a.altura}`); L.push(`Paint: ${a.sup.length?a.sup.join(', '):'—'}`);
-    const pp=[]; if(a.sup.includes('Walls')) pp.push(`Walls: ${a.pinturaInt||intWallDef()}`); if(a.sup.includes('Ceiling')) pp.push(`Ceiling: ${a.pinturaTecho||INT_CEIL_PAINT[0]}`);
+    const pp=[]; if(a.sup.includes('Walls')) pp.push(`Walls: ${INT_WALL_PAINT.includes(a.pinturaInt)?a.pinturaInt:intWallDef()}`); if(a.sup.includes('Ceiling')) pp.push(`Ceiling: ${INT_CEIL_PAINT.includes(a.pinturaTecho)?a.pinturaTecho:INT_CEIL_PAINT[0]}`); pp.push(`Trim & doors: SW Emerald Urethane ${trimOf(a).toLowerCase()}`);
     if(pp.length) L.push(`Paint product: ${pp.join('   ·   ')}`); }
   if(isOut(a)&&sizeKind(a.tipo)){ const z=SIZES_OUT[sizeKind(a.tipo)].find(x=>x.v===a.tam); L.push(`Size: ${a.tam}${z?' ('+z.d+')':''}`); }
-  if(isOut(a)&&/^House/.test(a.tipo)) L.push(`Paint: ${a.sup.length?a.sup.join(', '):'—'}   ·   ${a.pinturaExt||WALL_PAINT[0]}`);
+  if(isOut(a)&&/^House/.test(a.tipo)){ L.push(`Paint: ${a.sup.length?a.sup.join(', '):'—'}   ·   ${a.pinturaExt||WALL_PAINT[0]}`); L.push(`Entry doors & gates: SW Emerald Urethane ${trimOf(a).toLowerCase()}`); }
   if(isOut(a)&&hasSoffit(a.tipo)&&(!/^House/.test(a.tipo)||a.sup.includes('Soffit & fascia'))) L.push(`Soffit: ${a.ancho||'Standard'}${a.mat?'   ·   '+a.mat:''}   ·   ${a.pinturaSoffit||SOFFIT_PAINT[0]}`);
   const c=Object.entries(a.cnt).filter(([,n])=>n>0).map(([k,n])=>`${labelCnt(k,isOut(a))}: ${n}`);
   if(c.length) L.push(c.join('   ·   '));
@@ -483,7 +488,7 @@ async function buildPDF(){
   doc.text(`${new Date().toLocaleString('en-US')}   ·   ${state.id}`, W-M, y+38, {align:'right'});
   y+=70; doc.setDrawColor(...navy); doc.setLineWidth(1.2); doc.line(M,y,W-M,y); y+=18;
   doc.setTextColor(20,30,45); doc.setFontSize(11);
-  const info=[['Customer',c.nombre],['Phone',c.tel],['Address',`${c.dir}, ${c.ciudad}`],['State',stateOf(c.ciudad)],['Property',`${c.tipo} · ${c.pisos} story(ies)`],['Paint',c.pintura==='Cliente'?'Customer buys':'SRP buys'],['Trim paint',`SW Emerald Urethane, ${(c.brilloTrim||'Semi-gloss').toLowerCase()}`],['Areas',String(state.areas.length)]];
+  const info=[['Customer',c.nombre],['Phone',c.tel],['Address',`${c.dir}, ${c.ciudad}`],['State',stateOf(c.ciudad)],['Property',`${c.tipo} · ${c.pisos} story(ies)`],['Paint',c.pintura==='Cliente'?'Customer buys':'SRP buys'],['Areas',String(state.areas.length)]];
   info.forEach(([k,v])=>{ doc.setFont('helvetica','bold'); doc.text(k+':',M,y); doc.setFont('helvetica','normal'); doc.text(String(v||'—'),M+80,y); y+=16; });
   if(c.notas.trim()){ doc.setFont('helvetica','bold'); doc.text('Notes:',M,y); doc.setFont('helvetica','normal'); const t=doc.splitTextToSize(c.notas.trim(),W-2*M-80); doc.text(t,M+80,y); y+=t.length*14+2; }
   y+=8;
