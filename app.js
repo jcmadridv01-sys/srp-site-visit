@@ -123,8 +123,10 @@ function tx(store,mode,fn){
 }
 const reqP=r=>new Promise((res,rej)=>{ r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); });
 function save(){ updHdr&&updHdr(); if(!db) return; clearTimeout(saveT); saveT=setTimeout(saveNow,350); }
+const isBlankVisit=v=>!((v.cliente||{}).nombre||'').trim() && !((v.cliente||{}).dir||'').trim() && !((v.cliente||{}).tel||'').trim() && !(v.areas||[]).length && !((v.cliente||{}).notas||'').trim();
 async function saveNow(){
   if(!db) return;
+  if(isBlankVisit(state)){ try{ await tx('visits','readwrite',s=>s.delete(state.id)); }catch(e){} return; }  // empty visits are not kept in the list
   state.actualizado=new Date().toISOString();
   try{ await tx('visits','readwrite',s=>s.put(JSON.parse(JSON.stringify(state))));
        await tx('meta','readwrite',s=>s.put(state.id,'current')); }
@@ -133,7 +135,7 @@ async function saveNow(){
 function dbPut(id,url){ if(!db) return; tx('photos','readwrite',s=>s.put({id,visit:state.id,url})).catch(()=>toast('Phone storage is full — send the report now')); }
 function dbDel(id){ if(!db) return; tx('photos','readwrite',s=>s.delete(id)).catch(()=>{}); }
 function dbClear(){}
-async function listVisits(){ if(!db) return []; const t=db.transaction('visits'); const all=await reqP(t.objectStore('visits').getAll()); return all.sort((a,b)=>(b.actualizado||b.creado).localeCompare(a.actualizado||a.creado)); }
+async function listVisits(){ if(!db) return []; const t=db.transaction('visits'); const all=(await reqP(t.objectStore('visits').getAll())).filter(v=>!isBlankVisit(v)); return all.sort((a,b)=>(b.actualizado||b.creado).localeCompare(a.actualizado||a.creado)); }
 async function loadVisit(id){
   const t=db.transaction(['visits','photos']);
   const v=await reqP(t.objectStore('visits').get(id)); if(!v) return false;
@@ -143,11 +145,10 @@ async function loadVisit(id){
   renderClient(); renderAreas(); updHdr(); return true;
 }
 async function deleteVisit(id){
-  const t=db.transaction(['visits','photos'],'readwrite');
-  t.objectStore('visits').delete(id);
-  const idx=t.objectStore('photos').index('visit'); const keys=await reqP(idx.getAllKeys(id));
-  keys.forEach(k=>t.objectStore('photos').delete(k));
-  await new Promise(r=>{t.oncomplete=r; t.onerror=r;});
+  let keys=[]; try{ keys=await reqP(db.transaction('photos').objectStore('photos').index('visit').getAllKeys(id)); }catch(e){}
+  await new Promise(r=>{ const t=db.transaction(['visits','photos'],'readwrite');
+    t.objectStore('visits').delete(id); keys.forEach(k=>t.objectStore('photos').delete(k));
+    t.oncomplete=r; t.onerror=r; t.onabort=r; });
 }
 window.addEventListener('beforeunload',e=>{ if(!db && state.areas.length){ e.preventDefault(); e.returnValue=''; } });
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='hidden' && db){ clearTimeout(saveT); saveNow(); } });
@@ -176,9 +177,10 @@ document.addEventListener('click',async e=>{
   if(o){ await saveNow(); await loadVisit(o.dataset.vopen); $('#visits').hidden=true; $('#splash').hidden=true; go('visit'); toast('Visit opened'); }
   else if(d){
     if(!d.dataset.sure){ d.dataset.sure='1'; d.textContent='Sure?'; setTimeout(()=>{d.dataset.sure=''; d.textContent='Delete';},2500); return; }
-    const id=d.dataset.vdel; await deleteVisit(id);
-    if(id===state.id){ state=blank(); photos.clear(); renderClient(); renderAreas(); saveNow(); }
-    openVisits(); toast('Visit deleted');
+    const id=d.dataset.vdel; clearTimeout(saveT);
+    if(id===state.id){ state=blank(); photos.clear(); renderClient(); renderAreas(); updHdr(); }
+    await deleteVisit(id); await openVisits(); toast('Visit deleted');
+    const n=(await listVisits()).length; $('#splashVisits').hidden=!n; $('#splashVisits').textContent=`Saved visits (${n})`;
   }
 });
 
