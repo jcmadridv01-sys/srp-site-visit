@@ -88,6 +88,29 @@ const WP_OPTS = [{v:'Walls over 10 ft / stairwell',d:''},{v:'Large-repeat patter
 const WP_RM = [{v:'None',d:'no old wallpaper'},{v:'Strippable or peel-and-stick',d:'comes off easy'},{v:'Vinyl, painted-over or several layers',d:'hard removal'}];
 const WP_SURF = {wall:'Wall',ceil:'Ceiling',open:'Opening to deduct'};
 const wpSf = r => { const w=parseFloat(r.w)||0, h=parseFloat(r.h)||0; return w*h/144; };
+// Length typed by Miguel -> inches. Accepts 150 / 150" / 150 in / 12' / 12'6 / 12' 6" / 12ft 6in. NaN = can't read.
+function parseLen(t){
+  const s=String(t??'').trim().toLowerCase().replace(/[’‘`´]/g,"'").replace(/[”“]|''/g,'"').replace(/,/g,'.');
+  if(!s) return NaN;
+  let m=s.match(/^(\d+(?:\.\d+)?)\s*(?:'|ft|feet|foot)\s*(?:(\d+(?:\.\d+)?)\s*(?:"|in|inch|inches)?)?$/);
+  if(m){ const ft=+m[1], inch=m[2]!==undefined?+m[2]:0; return inch<12||m[2]===undefined ? ft*12+inch : NaN; }
+  m=s.match(/^(\d+(?:\.\d+)?)\s*(?:"|in|inch|inches)?$/); if(m) return +m[1];
+  return NaN;
+}
+const ftIn = n => { const t=Math.round(n); const f=Math.floor(t/12), i=t%12; return `${f}'${i}"`; };
+const usesFeet = t => /'|’|ft|feet|foot/i.test(String(t||''));
+function wpDimNote(label,txt,val){
+  const t=String(txt??'').trim(); if(!t) return null;
+  if(!isFinite(val)) return {bad:true, m:`${label} "${t}" can't be read. Type inches (150) or feet and inches (12'6").`};
+  if(usesFeet(t)) return {m:`${label} ${t} = ${+val.toFixed(2)} in`};
+  if(val>0 && val<=15){ const d=t.match(/^(\d+)\.(\d{1,2})$/); const fi=d&&+d[2]<12? [+d[1],+d[2]] : null;
+    const tip = fi ? `If you meant ${fi[0]} ft ${fi[1]} in, type ${fi[0]*12+fi[1]} (or ${fi[0]}'${fi[1]}").` : `If you meant ${+val.toFixed(2)} ft, type ${Math.round(val*12)} (inches).`;
+    return {warn:true, m:`${label} ${t} in is only ${(val/12).toFixed(1)} ft. ${tip}`}; }
+  if(val>360) return {warn:true, m:`${label} ${t} in = ${ftIn(val)}. Please check it.`};
+  return null;
+}
+function wpRowNotes(r){ return [wpDimNote('Width', r.wTxt??r.w, parseLen(r.wTxt??r.w)), wpDimNote('Height', r.hTxt??r.h, parseLen(r.hTxt??r.h))].filter(Boolean); }
+function wpNoteHTML(r){ return wpRowNotes(r).map(n=>`<span class="${n.bad?'bad':(n.warn?'warn':'ok')}">${n.bad||n.warn?'⚠ ':''}${esc(n.m)}</span>`).join(''); }
 function wpTotals(a){ const R=a.wpRows||[]; const sum=k=>R.filter(r=>r.k===k).reduce((t,r)=>t+wpSf(r),0);
   const open=R.filter(r=>r.k==='open'&&wpSf(r)>20).reduce((t,r)=>t+wpSf(r),0);
   return {walls:Math.max(0,Math.round(sum('wall')-open)), ceil:Math.round(sum('ceil')), open:Math.round(open)}; }
@@ -152,7 +175,7 @@ async function deleteVisit(id){
 window.addEventListener('beforeunload',e=>{ if(!db && state.areas.length){ e.preventDefault(); e.returnValue=''; } });
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='hidden' && db){ clearTimeout(saveT); saveNow(); } });
 
-const APP_VER='14';
+const APP_VER='15';
 // ---------- Saved visits list ----------
 const fmtD=iso=>{ try{ return new Date(iso).toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'}); }catch(e){ return ''; } };
 async function openVisits(){
@@ -253,8 +276,9 @@ function extraHTML(a,x,k){
 function wpRowHTML(r){ const sf=wpSf(r); const note = r.k==='open' ? (sf>0&&sf<=20?' · not deducted (20 sq ft or less)':'') : '';
   return `<div class="wprow" data-row="${r.id}">
     <select data-wk="${r.id}" aria-label="Surface">${Object.entries(WP_SURF).map(([k,l])=>`<option value="${k}" ${r.k===k?'selected':''}>${l}</option>`).join('')}</select>
-    <div class="wpdim"><input inputmode="decimal" data-wm="${r.id}:w" value="${esc(r.w)}" placeholder="Width" aria-label="Width in inches"><span>×</span><input inputmode="decimal" data-wm="${r.id}:h" value="${esc(r.h)}" placeholder="Height" aria-label="Height in inches"><span class="u">in</span></div>
+    <div class="wpdim"><input inputmode="decimal" data-wm="${r.id}:w" value="${esc(r.wTxt??r.w)}" placeholder="Width" aria-label="Width in inches"><span>×</span><input inputmode="decimal" data-wm="${r.id}:h" value="${esc(r.hTxt??r.h)}" placeholder="Height" aria-label="Height in inches"><span class="u">in</span></div>
     <div class="wpsf"><b data-sf="${r.id}">${sf?sf.toFixed(1):'0'}</b> sq ft<small data-sfn="${r.id}">${note}</small></div>
+    <div class="wpwarn" data-wn="${r.id}">${wpNoteHTML(r)}</div>
     <button class="del" data-wpdel="${r.id}" aria-label="Delete row">Delete</button></div>`; }
 function wpTotHTML(a){ const t=wpTotals(a); return `Walls <b>${t.walls}</b> sq ft${t.open?` (after −${t.open} openings)`:''} · Ceiling <b>${t.ceil}</b> sq ft`; }
 function wpAreaHTML(a,i){
@@ -272,7 +296,7 @@ function wpAreaHTML(a,i){
         <label class="alt">From gallery<input type="file" accept="image/*" multiple data-photo="${mainTipo}"></label>
       </div>
       <div class="sub">Paper type</div><p class="mini">The customer buys the wallpaper. Check the label or ask the customer.</p>${chips(WP_TYPES, v=>a.wpTipo===v, 'wpt')}
-      <div class="sub">Measurements (inches)</div><p class="mini">Measure each wall or ceiling: width × height in inches. Add doors, windows or openings bigger than 20 sq ft as "Opening to deduct".</p>
+      <div class="sub">Measurements (inches)</div><p class="mini">Measure each wall or ceiling: width × height in INCHES (12 ft = 144). You can also type feet like 12'6". Add doors, windows or openings bigger than 20 sq ft as "Opening to deduct".</p>
       <div class="wprows">${a.wpRows.map(wpRowHTML).join('')}</div>
       <div class="wpadd"><button class="btn-extra" data-wpadd="wall">+ Wall</button><button class="btn-extra" data-wpadd="ceil">+ Ceiling</button><button class="btn-extra" data-wpadd="open">+ Opening</button></div>
       <div class="wptot" data-wptot="${a.id}">${wpTotHTML(a)}</div>
@@ -343,12 +367,16 @@ function renderChecks(){
   updHdr();
   const noPh = A.filter(a=>!a.fotos.some(f=>f.tipo===tipo&&!f.ex)).map(a=>a.nombre);
   const wpNo = A.filter(a=>isWp(a)&&(()=>{const t=wpTotals(a); return t.walls+t.ceil===0;})()).map(a=>a.nombre);
+  const wpBad = A.filter(a=>isWp(a)&&(a.wpRows||[]).some(r=>wpRowNotes(r).some(n=>n.bad))).map(a=>a.nombre);
+  const wpOdd = A.filter(a=>isWp(a)&&(a.wpRows||[]).some(r=>wpRowNotes(r).some(n=>n.warn))).map(a=>a.nombre);
   const skNo = A.flatMap(a=>(a.extras||[]).filter(x=>isSkim(x)&&!a.fotos.some(f=>f.ex===x.id)).map(()=>a.nombre));
   const items=[
     [!!c.nombre.trim(),'Customer name'],
     [!!c.dir.trim(),'Address'],
     [A.length>0, A.length? `${A.length} area(s)` : 'At least one area'],
     ...(A.some(isWp) ? [[wpNo.length===0, wpNo.length? `Wallpaper needs measurements: ${wpNo.join(', ')}` : 'Wallpaper measured']] : []),
+    ...(wpBad.length ? [[false, `Wallpaper size can't be read: ${wpBad.join(', ')}`]] : []),
+    ...(wpOdd.length ? [[false, `Check wallpaper sizes (feet or inches?): ${wpOdd.join(', ')}`]] : []),
     ...(A.some(a=>(a.extras||[]).some(isSkim)) ? [[skNo.length===0, skNo.length? `Skim coat needs a detail photo: ${skNo.join(', ')}` : 'Skim coat photo taken']] : []),
     [A.length>0 && noPh.length===0, noPh.length? `Missing ${tipo==='despues'?'AFTER':'BEFORE'} photo: ${noPh.join(', ')}` : `${tipo==='despues'?'AFTER':'BEFORE'} photos in every area`]
   ];
@@ -391,11 +419,11 @@ $('#areas').addEventListener('click',e=>{
 $('#areas').addEventListener('input',e=>{
   const wm=e.target.dataset.wm, wk=e.target.dataset.wk;
   if(wm||wk){ const a=areaOf(e.target); if(!a) return; const [rid,dim]=(wm||wk+':k').split(':'); const r=(a.wpRows||[]).find(x=>x.id===rid); if(!r) return;
-    if(dim==='k') r.k=e.target.value; else r[dim]=e.target.value.replace(/[^0-9.]/g,'');
+    if(dim==='k') r.k=e.target.value; else { const v=parseLen(e.target.value); r[dim+'Txt']=e.target.value; r[dim]=isFinite(v)?String(+v.toFixed(2)):''; }
     const sf=wpSf(r); const box=e.target.closest('.area');
     box.querySelector(`[data-sf="${rid}"]`).textContent=sf?sf.toFixed(1):'0';
     box.querySelector(`[data-sfn="${rid}"]`).textContent= r.k==='open'&&sf>0&&sf<=20?' · not deducted (20 sq ft or less)':'';
-    box.querySelector('[data-wptot]').innerHTML=wpTotHTML(a); save(); renderChecks(); return; }
+    box.querySelector(`[data-wn="${rid}"]`).innerHTML=wpNoteHTML(r); box.querySelector('[data-wptot]').innerHTML=wpTotHTML(a); save(); renderChecks(); return; }
   const xf=e.target.dataset.xf;
   if(xf){ const a=areaOf(e.target); const x=a&&a.extras.find(x=>x.id===e.target.closest('.extra').dataset.ex); if(x){ x[xf]=e.target.value;
     if(xf==='tipo'){ if(isSkim(x)&&!SKIM_SIZE.some(z=>z.v===x.tam)) x.tam='Section'; if(!isSkim(x)&&!EXTRA_SIZE.includes(x.tam)) x.tam='Medium'; save(); const y=window.scrollY; renderAreas(); renderChecks(); window.scrollTo(0,y); return; }
@@ -453,7 +481,7 @@ function areaLines(a){
   const L=[];
   if(isWp(a)){ const t=wpTotals(a);
     L.push(`Paper type: ${a.wpTipo||'—'} (customer supplies the paper)`);
-    (a.wpRows||[]).forEach((r,j)=>{ const sf=wpSf(r); L.push(`${WP_SURF[r.k]} ${j+1}: ${r.w||'?'} × ${r.h||'?'} in = ${sf.toFixed(1)} sq ft${r.k==='open'&&sf<=20?' (not deducted)':''}`); });
+    (a.wpRows||[]).forEach((r,j)=>{ const sf=wpSf(r); const fi=(r.w&&r.h)?` (${ftIn(+r.w)} × ${ftIn(+r.h)})`:''; L.push(`${WP_SURF[r.k]} ${j+1}: ${r.w||'?'} × ${r.h||'?'} in${fi} = ${sf.toFixed(1)} sq ft${r.k==='open'&&sf<=20?' (not deducted)':''}`); });
     L.push(`Total to cover: walls ${t.walls} sq ft${t.open?' (openings −'+t.open+')':''} · ceiling ${t.ceil} sq ft`);
     if((a.wpOpts||[]).length) L.push(`Extras: ${a.wpOpts.join(', ')}`);
     L.push(`Old wallpaper removal: ${a.wpRm||'None'}`);

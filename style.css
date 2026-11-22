@@ -91,6 +91,11 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--caramel)
 .wpdim span{color:var(--muted);font-size:14px}
 .wpsf{grid-column:1/3;font-size:13px;color:var(--muted)}
 .wpsf b{color:var(--ink)}
+.wpwarn{grid-column:1/3;display:flex;flex-direction:column;gap:4px;font-size:13px;line-height:1.35}
+.wpwarn:empty{display:none}
+.wpwarn .ok{color:#2F7D4F}
+.wpwarn .warn{color:#9A5B00;background:#FFF4E0;border-radius:8px;padding:6px 8px}
+.wpwarn .bad{color:#B3261E;background:#FBEDEA;border-radius:8px;padding:6px 8px;font-weight:600}
 .wpadd{display:flex;gap:8px;margin-bottom:10px}
 .wpadd .btn-extra{flex:1;margin:0}
 .wptot{font-size:14px;background:#F3EEE8;border-radius:10px;padding:10px 12px;margin-bottom:6px}
