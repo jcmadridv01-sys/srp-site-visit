@@ -153,6 +153,7 @@ async function deleteVisit(id){
 window.addEventListener('beforeunload',e=>{ if(!db && state.areas.length){ e.preventDefault(); e.returnValue=''; } });
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='hidden' && db){ clearTimeout(saveT); saveNow(); } });
 
+const APP_VER='13';
 // ---------- Saved visits list ----------
 const fmtD=iso=>{ try{ return new Date(iso).toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'}); }catch(e){ return ''; } };
 async function openVisits(){
@@ -171,6 +172,7 @@ async function openVisits(){
       <button class="vdel" data-vdel="${esc(v.id)}" aria-label="Delete visit">Delete</button></div>`; }).join('')
     : '<p class="hint">No saved visits yet.</p>';
   $('#visits').hidden=false;
+  $('#appVer').textContent='App version '+APP_VER;
 }
 document.addEventListener('click',async e=>{
   const o=e.target.closest('[data-vopen]'), d=e.target.closest('[data-vdel]');
@@ -179,7 +181,8 @@ document.addEventListener('click',async e=>{
     if(!d.dataset.sure){ d.dataset.sure='1'; d.textContent='Sure?'; setTimeout(()=>{d.dataset.sure=''; d.textContent='Delete';},2500); return; }
     const id=d.dataset.vdel; clearTimeout(saveT);
     if(id===state.id){ state=blank(); photos.clear(); renderClient(); renderAreas(); updHdr(); }
-    await deleteVisit(id); await openVisits(); toast('Visit deleted');
+    try{ await deleteVisit(id); }catch(e){ toast('Could not delete — close the app and try again'); return; }
+    await openVisits(); toast('Visit deleted');
     const n=(await listVisits()).length; $('#splashVisits').hidden=!n; $('#splashVisits').textContent=`Saved visits (${n})`;
   }
 });
