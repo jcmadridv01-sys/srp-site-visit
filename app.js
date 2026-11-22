@@ -138,8 +138,7 @@ function dbClear(){}
 async function listVisits(){ if(!db) return []; const t=db.transaction('visits'); const all=(await reqP(t.objectStore('visits').getAll())).filter(v=>!isBlankVisit(v)); return all.sort((a,b)=>(b.actualizado||b.creado).localeCompare(a.actualizado||a.creado)); }
 async function loadVisit(id){
   const t=db.transaction(['visits','photos']);
-  const v=await reqP(t.objectStore('visits').get(id)); if(!v) return false;
-  const ps=await reqP(t.objectStore('photos').index('visit').getAll(id));
+  const [v,ps]=await Promise.all([reqP(t.objectStore('visits').get(id)), reqP(t.objectStore('photos').index('visit').getAll(id))]); if(!v) return false;
   state=v; photos.clear(); ps.forEach(p=>photos.set(p.id,p.url));
   await tx('meta','readwrite',s=>s.put(id,'current'));
   renderClient(); renderAreas(); updHdr(); return true;
@@ -153,7 +152,7 @@ async function deleteVisit(id){
 window.addEventListener('beforeunload',e=>{ if(!db && state.areas.length){ e.preventDefault(); e.returnValue=''; } });
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='hidden' && db){ clearTimeout(saveT); saveNow(); } });
 
-const APP_VER='13';
+const APP_VER='14';
 // ---------- Saved visits list ----------
 const fmtD=iso=>{ try{ return new Date(iso).toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'}); }catch(e){ return ''; } };
 async function openVisits(){
@@ -216,7 +215,7 @@ function segBind(el, get, set){
 function renderClient(){
   const c=state.cliente;
   [['c_nombre','nombre'],['c_tel','tel'],['c_dir','dir'],['c_ciudad','ciudad'],['c_tipo','tipo'],['c_pisos','pisos'],['c_notas','notas']].forEach(([id,k])=>{
-    const el=$('#'+id); el.value=c[k]; el.oninput=()=>{c[k]=el.value; save(); renderChecks();};
+    const el=$('#'+id); el.value=c[k]; el.oninput=el.onchange=()=>{c[k]=el.value; save(); renderChecks();};
   });
   segBind($('#c_pintura'), ()=>c.pintura, v=>c.pintura=v);
   segBind($('#mode'), ()=>state.modo, v=>{state.modo=v; renderAreas();});
@@ -364,7 +363,7 @@ $('#areas').addEventListener('click',e=>{
   else if(b.dataset.alt){ a.altura=b.dataset.alt; }
   else if(b.dataset.brt){ a.brilloTrim=b.dataset.brt; }
   else if('addex' in b.dataset){ a.extras.push({id:'X'+Math.random().toString(36).slice(2,8), tipo:EXTRA_TYPES[0], tam:'Small', nota:''}); }
-  else if(b.dataset.delex){ const id=b.dataset.delex; a.fotos.filter(f=>f.ex===id).forEach(f=>photos.delete(f.id)); a.fotos=a.fotos.filter(f=>f.ex!==id); a.extras=a.extras.filter(x=>x.id!==id); }
+  else if(b.dataset.delex){ const id=b.dataset.delex; a.fotos.filter(f=>f.ex===id).forEach(f=>{photos.delete(f.id); dbDel(f.id);}); a.fotos=a.fotos.filter(f=>f.ex!==id); a.extras=a.extras.filter(x=>x.id!==id); }
   else if(b.dataset.xtam){ const x=a.extras.find(x=>x.id===b.closest('.extra').dataset.ex); if(x) x.tam=b.dataset.xtam; }
   else if(b.dataset.sht){ a.shutTipo = a.shutTipo===b.dataset.sht?'':b.dataset.sht; }
   else if(b.dataset.shp){ a.shutPrep = b.dataset.shp; }
@@ -444,7 +443,7 @@ $('#pickClose').onclick=()=>{ $('#picker').hidden=true; };
 $('#picker').addEventListener('click',e=>{
   if(e.target.id==='picker'){ $('#picker').hidden=true; return; }
   const b=e.target.closest('button[data-t]'); if(!b) return;
-  state.areas.push(newArea(b.dataset.t)); $('#picker').hidden=true; save(); go('areas'); renderAreas();
+  state.areas.push(newArea(b.dataset.t)); $('#picker').hidden=true; $('#areas').dataset.filter='all'; $('#cats').querySelectorAll('button').forEach(x=>x.classList.toggle('on',x.dataset.f==='all')); save(); go('areas'); renderAreas();
   setTimeout(()=>{ const els=document.querySelectorAll('.area'); els[els.length-1]?.scrollIntoView({behavior:'smooth',block:'start'}); },60);
 });
 
@@ -476,13 +475,16 @@ function areaLines(a){
   return L;
 }
 function fileBase(){
-  const c=state.cliente; const n=(c.nombre||'customer').trim().replace(/[^\wÁÉÍÓÚÑáéíóúñ ]+/g,'').replace(/\s+/g,'-');
-  const d=new Date().toISOString().slice(0,10); return `Visit-${state.modo==='despues'?'COMPLETED':'ESTIMATE'}-${n}-${d}`;
+  const c=state.cliente; const n=(c.nombre||'customer').trim().replace(/[^\wÁÉÍÓÚÑáéíóúñ ]+/g,'').replace(/\s+/g,'-')||'customer';
+  const t=new Date(), d=`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`; return `Visit-${state.modo==='despues'?'COMPLETED':'ESTIMATE'}-${n}-${d}`;
 }
 
 async function buildPDF(){
   const { jsPDF } = window.jspdf;
-  const doc=new jsPDF({unit:'pt',format:'letter'}); const W=612,H=792,M=40; let y=M;
+  const doc=new jsPDF({unit:'pt',format:'letter'});
+  { const _t=doc.text.bind(doc), _s=doc.splitTextToSize.bind(doc);
+    doc.text=(t,...r)=>_t(Array.isArray(t)?t.map(pdfSafe):pdfSafe(t),...r); doc.splitTextToSize=(t,...r)=>_s(pdfSafe(t),...r); }
+  const W=612,H=792,M=40; let y=M;
   const navy=[31,46,74], slate=[90,103,125];
   const c=state.cliente;
   // logo
@@ -532,6 +534,9 @@ async function buildPDF(){
   for(let p=1;p<=n;p++){ doc.setPage(p); doc.setFontSize(8.5); doc.setTextColor(...slate); doc.text(`Sarasota Residential Painting · Visit ${state.id} · Page ${p} of ${n}`, W/2, H-20, {align:'center'}); }
   return doc.output('blob');
 }
+const WINANSI='€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ';
+function pdfSafe(t){ return Array.from(String(t??'')).map(ch=>{ if(ch==='−') return '-'; if(ch==='≈') return '~'; if(ch==='✓') return 'OK'; const c=ch.codePointAt(0);
+  return (c===10||c===9||(c>=32&&c<=126)||(c>=160&&c<=255)||WINANSI.includes(ch))?ch:''; }).join(''); }
 function toDataURL(src){ return fetch(src).then(r=>r.blob()).then(b=>new Promise(r=>{const f=new FileReader(); f.onload=()=>r(f.result); f.readAsDataURL(b);})); }
 
 function jsonExport(){
@@ -594,6 +599,8 @@ $('#pickTabs').addEventListener('click',e=>{ const b=e.target.closest('button[da
   $('#pickTabs').querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
   $('#gridIn').hidden=b.dataset.p!=='in'; $('#gridOut').hidden=b.dataset.p!=='out'; $('#gridWp').hidden=b.dataset.p!=='wp'; });
 $('#startBtn').onclick=()=>{ $('#splash').hidden=true; };
+function splashLabel(){ const has=!isBlankVisit(state); $('#startBtn').textContent= has? `Continue visit: ${state.cliente.nombre.trim()||'(no name)'}` : 'Start visit'; $('#splashNew').hidden=!has; }
+$('#splashNew').onclick=async()=>{ await saveNow(); state=blank(); photos.clear(); renderClient(); renderAreas(); $('#splash').hidden=true; go('visit'); toast(db?'New visit — the last one is saved':'New visit'); };
 
 $('#visitsBtn').onclick=openVisits; $('#splashVisits').onclick=openVisits;
 $('#vClose').onclick=()=>{ $('#visits').hidden=true; };
@@ -608,6 +615,7 @@ renderClient(); renderAreas();
     let cur=null; try{ cur=await tx('meta','readonly',s=>s.get('current')); }catch(e){}
     if(cur){ try{ await loadVisit(cur); }catch(e){} }
     const n=(await listVisits()).length; $('#splashVisits').hidden=!n; $('#splashVisits').textContent=`Saved visits (${n})`;
+    splashLabel();
   } else { $('#saveNote').hidden=false; }
 })();
 if('serviceWorker' in navigator && location.protocol==='https:' && !/perplexity|pplx/.test(location.hostname)){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
